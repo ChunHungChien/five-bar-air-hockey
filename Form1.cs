@@ -70,6 +70,8 @@ namespace Ptp2AxesControl_CS
         public int a;
         int oldb;
         int olda;
+        public int noise[];
+        int noisecount=0;
 
         public static int countt = 1;    //計時器
 
@@ -300,8 +302,6 @@ namespace Ptp2AxesControl_CS
 
                         a = 100;
                         b = 80;
-
-
                         //  MessageBox.Show("1");
 
                     }
@@ -385,7 +385,17 @@ namespace Ptp2AxesControl_CS
 
                         // MessageBox.Show("4");
                     }
-
+                    
+            //過濾誤差
+            for ( ; ;noisecount++)
+                {
+                noise[noisecount] = (a,b);
+                if(noisecount > 1)
+                    noisecount = 0;
+                break;
+                }
+            
+            
             //int x_asix= Convert.ToInt32(GSWei_X);
             //int y_asix = Convert.ToInt32(GSWei_Y);
             //togetherFun1(x_asix, y_asix);
@@ -760,19 +770,8 @@ namespace Ptp2AxesControl_CS
 
             if (button3.Text == "Move")
             {
-                olda = a;
-                oldb = b;
-
-               
-                    
                 
-            /*    else
-                {
-                    a = olda - 10;
-                    b = oldb + 10;
-                }
-                */
-                if (olda != a && oldb != b)
+                if (noise[0] == noise[1])
                 {
                     RunLoop(a, b);
                 }
