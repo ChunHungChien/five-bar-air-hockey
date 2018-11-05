@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.ComponentModel;
 using System.Data;
@@ -14,30 +14,25 @@ using Emgu.Util;
 using Emgu.CV.CvEnum;
 using Emgu.CV.Util;
 
-
 namespace Ptp2AxesControl_CS
 {
-    
     public partial class Form1 : Form
     {
         private Capture cap = null;
-
         private const int TOTAL_AXIS = 2;
         private const ushort MASTER_ID = 1;
-
         private string mEniPath = "";
         private uint mSlaveCnt;
-
         private uint[] mAxisId = new uint[TOTAL_AXIS];
         private uint[] mVelocity = new uint[TOTAL_AXIS];
         private uint[] mAccDec = new uint[TOTAL_AXIS];
         private int[] mTargetPos = new int[TOTAL_AXIS];
-        private float posX;
-        private float posY;
+        public float posX;
+        public float posY;
         private float posXX;
         private float posYY;
-        private float GSWei_X;
-        private float GSWei_Y;
+        float GSWei_X;
+        float GSWei_Y;
         int time = 100;
         //int cam_center_x = 320;
         //int cam_center_y = 240;
@@ -48,18 +43,14 @@ namespace Ptp2AxesControl_CS
         float puckCoordX = 0;
         float puckCoordY = 0;
         float puckSpeedX = 0;
-        float puckSpeedY = 0;
+        public float puckSpeedY = 0;
         float puckOldCoordX = 0;
         float puckOldCoordY = 0;
-        float defense_position = 125.0f;//要假設
+        float defense_position = 115.0f;//要假設
         float predict_x = 0;    // X position at impact (mm)
         float predict_y = 0;
         float predict_x_old = 0;
-        float predict_y_old = 0;
         float predict_time = 0;
-        char tempStr;
-        char tempStr2;
-        int trigger = 0;
         float coordX = 0;
         float coordY = 0;
         float vectorX = 0;
@@ -73,12 +64,10 @@ namespace Ptp2AxesControl_CS
         float bounce_pixY = 0;
         ThreadStart sample;
         Thread mysample;
-
         double theta1 = 90.0;
         double theta2 = 90.0;
-
-        int b;
-        int a;
+        public int b;
+        public int a;
         int oldb;
         int olda;
 
@@ -93,19 +82,21 @@ namespace Ptp2AxesControl_CS
         {
             cap = new Capture(0);
             Application.Idle += new EventHandler(Application_Idle);
-            int ret = NexECM.NEC_LoadRtxApp("C:\\Program Files\\NEXCOM\\NexECMRtx\\Lib\\NexECMRtx\\x32\\NexECMRtx.rtss");
+            int ret = NexECM.NEC_LoadRtxApp("C:\\NEXCOBOT\\NexEcmRtxRtdllRunTime.rtss");
             if (ret != 0) { MessageBox.Show("NEC_LoadRtxApp failed" + ret.ToString()); return; }
         }
         void Application_Idle(object sender, EventArgs e)
         {
             //計時檢測
-         //   System.Diagnostics.Stopwatch sw = new System.Diagnostics.Stopwatch();//引用stopwatch物件
-         //   sw.Reset();//碼表歸零
-           // sw.Start();//碼表開始計時
-            
+            /*System.Diagnostics.Stopwatch sw = new System.Diagnostics.Stopwatch();//引用stopwatch物件
+            sw.Reset();//碼表歸零
+            sw.Start();//碼表開始計時
+            */
+            CvInvoke.WaitKey(10);
             Image<Bgr, Byte> frame = cap.QueryFrame().ToImage<Bgr, Byte>(); // 去query該畫面
             Image<Hsv, byte> framehsv = frame.Convert<Hsv, byte>();   //fram to hsv                       //MessageBox.Show(frame.Size.ToString());
             Image<Gray, byte> grayImage = framehsv.Convert<Gray, byte>();//framhsv to gray
+            Image<Gray, byte> macanicle = new Image<Gray, byte>(640,480, new Gray(255));
             //MessageBox.Show(image.Data[131, 104, 0].ToString() + "," + image.Data[131, 104, 1].ToString() + "," + image.Data[131, 104, 2].ToString());
             Gray thresholdValue = new Gray(150);
             //取得二值化影像
@@ -140,10 +131,7 @@ namespace Ptp2AxesControl_CS
                         
                     }
                 }
-            }
-
-            
-
+            }         
             //cameraprocess(posX, posY);
             // Convert from Camera reference system to Robot reference system
             // We suppose very small angle rotatios (less than 5 degrees) so we use the 
@@ -178,7 +166,12 @@ namespace Ptp2AxesControl_CS
             // Its time to predict...
             // Based on actual position, speed and angle we need to know the future...
             // Posible impact?
-            if (puckSpeedY < -10)
+            if (puckSpeedY > 20 && posX < 330)
+            {
+                predict_x = -1;
+                predict_y = -1;
+            }
+            if (puckSpeedY < -10 )
             {
                 // Puck is comming...
                 // We need to predict the puck position when it reaches our goal Y=0
@@ -270,9 +263,11 @@ namespace Ptp2AxesControl_CS
                 //~~~~~~~~~sprintf(tempStr2, "NO %d,%d %d", coordX, coordY, puckSpeedY);
                 predict_x_old = -1;
             }
-
-            GSWei_Y = predict_y;
-            GSWei_X = predict_x;
+            
+            
+                GSWei_Y = predict_y;
+                GSWei_X = predict_x;
+            
             label7.Text = string.Format("GSWei_X: {0}, GSWei_Y: {1}", (int)GSWei_X, (int)GSWei_Y);
 
             CvInvoke.Line(frame, new Point((int)0, (int)(95 / cam_pix_to_mm)), new Point((int)640, (int)(95 / cam_pix_to_mm)), new MCvScalar(0, 0, 0), 2);
@@ -280,27 +275,125 @@ namespace Ptp2AxesControl_CS
 
             CvInvoke.Line(frame, new Point((int)0, (int)(115 / cam_pix_to_mm)), new Point((int)640, (int)(115 / cam_pix_to_mm)), new MCvScalar(255, 255, 255), 2);
             CvInvoke.Line(frame, new Point((int)0, (int)(461 / cam_pix_to_mm)), new Point((int)640, (int)(461 / cam_pix_to_mm)), new MCvScalar(255, 255, 255), 2);
-            CvInvoke.PutText(frame, "posX", new Point(10, 20), 0, 0.7, new MCvScalar(255, 255, 0), 2);
+            //CvInvoke.PutText(frame, "posX", new Point(10, 20), 0, 0.7, new MCvScalar(255, 255, 0), 2);
 
             pictureBox1.Image = frame.ToBitmap();
-            CvInvoke.Line(grayImage, new Point(210, 75), new Point((int)(210+180*(Math.Cos(theta1 * Math.PI / 180))), (int)(75 + 180 * (Math.Sin(theta1*Math.PI/180)))), new MCvScalar(255, 255, 255), 2);
-            CvInvoke.Line(grayImage, new Point(430, 75), new Point((int)(430 + 180 * (Math.Cos(theta2 * Math.PI / 180))), (int)(75 + 180 * (Math.Sin(theta2 * Math.PI / 180)))), new MCvScalar(255, 255, 255), 2);
-            //CvInvoke.Line(grayImage, new Point((int)(210 + 180 * (Math.Cos(theta1 * Math.PI / 180))), (int)(75 + 180 * (Math.Sin(theta1 * Math.PI / 180)))), new Point((int)(210 + 180 * (Math.Cos(theta1 * Math.PI / 180))), (int)(75 + 180 * (Math.Sin(theta1 * Math.PI / 180)))), new MCvScalar(255, 255, 255), 2);
-            //CvInvoke.Line(grayImage, new Point((int)(430 + 180 * (Math.Cos(theta2 * Math.PI / 180))), (int)(75 + 180 * (Math.Sin(theta2 * Math.PI / 180)))), new Point((int)(210 + 180 * (Math.Cos(theta1 * Math.PI / 180))), (int)(75 + 180 * (Math.Sin(theta1 * Math.PI / 180)))), new MCvScalar(255, 255, 255), 2);
+            CvInvoke.Line(macanicle, new Point(210, 405), new Point((int)(210+180*(Math.Cos(theta1 * Math.PI / 180))), (int)(480-(75 + 180 * (Math.Sin(theta1*Math.PI/180))))), new MCvScalar(90, 90, 90), 24);
+            CvInvoke.Line(macanicle, new Point(430, 405), new Point((int)(430 + 180 * (Math.Cos(theta2 * Math.PI / 180))), (int)(480-(75 + 180 * (Math.Sin(theta2 * Math.PI / 180))))), new MCvScalar(90, 90, 90), 24);
+            CvInvoke.Line(macanicle, new Point((int)(210 + 180 * (Math.Cos(theta1 * Math.PI / 180))), 480-(int)(75 + 180 * (Math.Sin(theta1 * Math.PI / 180)))), new Point((int)(210 + (180 * (Math.Cos(theta1 * Math.PI / 180))) + ((180 * (Math.Cos(theta2 * Math.PI / 180)) - 180 * (Math.Cos(theta1 * Math.PI / 180)) + 220) * 0.5) + (((Math.Sqrt(32400 - (Math.Pow((180 * (Math.Cos(theta2 * Math.PI / 180)) - 180 * (Math.Cos(theta1 * Math.PI / 180)) + 220) * 0.5, 2) + Math.Pow((180 * (Math.Sin(theta2 * Math.PI / 180)) - 180 * (Math.Sin(theta1 * Math.PI / 180))) * 0.5, 2)))) / (Math.Sqrt(Math.Pow((180 * (Math.Cos(theta2 * Math.PI / 180)) - 180 * (Math.Cos(theta1 * Math.PI / 180)) + 220) * 0.5, 2) + Math.Pow((180 * (Math.Sin(theta2 * Math.PI / 180)) - 180 * (Math.Sin(theta1 * Math.PI / 180))) * 0.5, 2)))) * (-((180 * (Math.Sin(theta2 * Math.PI / 180)) - 180 * (Math.Sin(theta1 * Math.PI / 180))) * 0.5)))), 480-(int)(75 + (180 * (Math.Sin(theta1 * Math.PI / 180))) + ((180 * (Math.Sin(theta2 * Math.PI / 180)) - 180 * (Math.Sin(theta1 * Math.PI / 180))) * 0.5) + (((Math.Sqrt(32400 - (Math.Pow((180 * (Math.Cos(theta2 * Math.PI / 180)) - 180 * (Math.Cos(theta1 * Math.PI / 180)) + 220) * 0.5, 2) + Math.Pow((180 * (Math.Sin(theta2 * Math.PI / 180)) - 180 * (Math.Sin(theta1 * Math.PI / 180))) * 0.5, 2)))) / (Math.Sqrt(Math.Pow((180 * (Math.Cos(theta2 * Math.PI / 180)) - 180 * (Math.Cos(theta1 * Math.PI / 180)) + 220) * 0.5, 2) + Math.Pow((180 * (Math.Sin(theta2 * Math.PI / 180)) - 180 * (Math.Sin(theta1 * Math.PI / 180))) * 0.5, 2)))) * ((180 * (Math.Cos(theta2 * Math.PI / 180)) - 180 * (Math.Cos(theta1 * Math.PI / 180)) + 220) * 0.5)))), new MCvScalar(90, 90, 90), 24);
+            CvInvoke.Line(macanicle, new Point((int)(430 + 180 * (Math.Cos(theta2 * Math.PI / 180))), 480-(int)(75 + 180 * (Math.Sin(theta2 * Math.PI / 180)))), new Point((int)(210 + (180 * (Math.Cos(theta1 * Math.PI / 180))) + ((180 * (Math.Cos(theta2 * Math.PI / 180)) - 180 * (Math.Cos(theta1 * Math.PI / 180)) + 220) * 0.5) + (((Math.Sqrt(32400 - (Math.Pow((180 * (Math.Cos(theta2 * Math.PI / 180)) - 180 * (Math.Cos(theta1 * Math.PI / 180)) + 220) * 0.5, 2) + Math.Pow((180 * (Math.Sin(theta2 * Math.PI / 180)) - 180 * (Math.Sin(theta1 * Math.PI / 180))) * 0.5, 2)))) / (Math.Sqrt(Math.Pow((180 * (Math.Cos(theta2 * Math.PI / 180)) - 180 * (Math.Cos(theta1 * Math.PI / 180)) + 220) * 0.5, 2) + Math.Pow((180 * (Math.Sin(theta2 * Math.PI / 180)) - 180 * (Math.Sin(theta1 * Math.PI / 180))) * 0.5, 2)))) * (-((180 * (Math.Sin(theta2 * Math.PI / 180)) - 180 * (Math.Sin(theta1 * Math.PI / 180))) * 0.5)))), 480-(int)(75 + (180 * (Math.Sin(theta1 * Math.PI / 180))) + ((180 * (Math.Sin(theta2 * Math.PI / 180)) - 180 * (Math.Sin(theta1 * Math.PI / 180))) * 0.5) + (((Math.Sqrt(32400 - (Math.Pow((180 * (Math.Cos(theta2 * Math.PI / 180)) - 180 * (Math.Cos(theta1 * Math.PI / 180)) + 220) * 0.5, 2) + Math.Pow((180 * (Math.Sin(theta2 * Math.PI / 180)) - 180 * (Math.Sin(theta1 * Math.PI / 180))) * 0.5, 2)))) / (Math.Sqrt(Math.Pow((180 * (Math.Cos(theta2 * Math.PI / 180)) - 180 * (Math.Cos(theta1 * Math.PI / 180)) + 220) * 0.5, 2) + Math.Pow((180 * (Math.Sin(theta2 * Math.PI / 180)) - 180 * (Math.Sin(theta1 * Math.PI / 180))) * 0.5, 2)))) * ((180 * (Math.Cos(theta2 * Math.PI / 180)) - 180 * (Math.Cos(theta1 * Math.PI / 180)) + 220) * 0.5)))), new MCvScalar(90, 90, 90), 24);
+            CvInvoke.Circle(macanicle, new Point(210, 405), 9, new MCvScalar(255, 255, 255), 2);
+            CvInvoke.Circle(macanicle, new Point(430, 405), 9, new MCvScalar(255, 255, 255), 2);
+            CvInvoke.Circle(macanicle, new Point((int)(210 + 180 * (Math.Cos(theta1 * Math.PI / 180))), (int)(480-(75 + 180 * (Math.Sin(theta1 * Math.PI / 180))))), 9, new MCvScalar(255, 255, 255), 2);
+            CvInvoke.Circle(macanicle, new Point((int)(430 + 180 * (Math.Cos(theta2 * Math.PI / 180))), (int)(480-(75 + 180 * (Math.Sin(theta2 * Math.PI / 180))))), 9, new MCvScalar(255, 255, 255), 2);
+            CvInvoke.Circle(macanicle, new Point((int)(210 + (180 * (Math.Cos(theta1 * Math.PI / 180))) + ((180 * (Math.Cos(theta2 * Math.PI / 180)) - 180 * (Math.Cos(theta1 * Math.PI / 180)) + 220) * 0.5) + (((Math.Sqrt(32400 - (Math.Pow((180 * (Math.Cos(theta2 * Math.PI / 180)) - 180 * (Math.Cos(theta1 * Math.PI / 180)) + 220) * 0.5, 2) + Math.Pow((180 * (Math.Sin(theta2 * Math.PI / 180)) - 180 * (Math.Sin(theta1 * Math.PI / 180))) * 0.5, 2)))) / (Math.Sqrt(Math.Pow((180 * (Math.Cos(theta2 * Math.PI / 180)) - 180 * (Math.Cos(theta1 * Math.PI / 180)) + 220) * 0.5, 2) + Math.Pow((180 * (Math.Sin(theta2 * Math.PI / 180)) - 180 * (Math.Sin(theta1 * Math.PI / 180))) * 0.5, 2)))) * (-((180 * (Math.Sin(theta2 * Math.PI / 180)) - 180 * (Math.Sin(theta1 * Math.PI / 180))) * 0.5)))), 480-(int)(75 + (180 * (Math.Sin(theta1 * Math.PI / 180))) + ((180 * (Math.Sin(theta2 * Math.PI / 180)) - 180 * (Math.Sin(theta1 * Math.PI / 180))) * 0.5) + (((Math.Sqrt(32400 - (Math.Pow((180 * (Math.Cos(theta2 * Math.PI / 180)) - 180 * (Math.Cos(theta1 * Math.PI / 180)) + 220) * 0.5, 2) + Math.Pow((180 * (Math.Sin(theta2 * Math.PI / 180)) - 180 * (Math.Sin(theta1 * Math.PI / 180))) * 0.5, 2)))) / (Math.Sqrt(Math.Pow((180 * (Math.Cos(theta2 * Math.PI / 180)) - 180 * (Math.Cos(theta1 * Math.PI / 180)) + 220) * 0.5, 2) + Math.Pow((180 * (Math.Sin(theta2 * Math.PI / 180)) - 180 * (Math.Sin(theta1 * Math.PI / 180))) * 0.5, 2)))) * ((180 * (Math.Cos(theta2 * Math.PI / 180)) - 180 * (Math.Cos(theta1 * Math.PI / 180)) + 220) * 0.5)))), 9, new MCvScalar(255, 255, 255), 2);
 
-            pictureBox2.Image = grayImage.ToBitmap();
+            pictureBox2.Image = macanicle.ToBitmap();
 
             frame.Dispose();
             framehsv.Dispose();
             grayImage.Dispose();
+            macanicle.Dispose();
+            
+            if (GSWei_X == -1)
+                    {
+
+                        a = 100;
+                        b = 80;
+
+
+                        //  MessageBox.Show("1");
+
+                    }
+                    else if (GSWei_X > 90 && GSWei_X <= 172)
+                    {
+
+                        a = 151;
+                        b = 117;
+
+                        //   MessageBox.Show("2");
+                    }
+
+                    else if (GSWei_X > 172 && GSWei_X <= 198)
+                    {
+
+                        a = 138;
+                        b = 111;
+                        //   MessageBox.Show("2");
+                    }
+                    else if (GSWei_X > 198 && GSWei_X <= 226)
+                    {
+
+                        a = 126;
+                        b = 105;
+                        //  MessageBox.Show("3");
+                    }
+                    else if (GSWei_X > 226 && GSWei_X <= 252)
+                    {
+
+                        a = 116;
+                        b = 99;
+                        //   MessageBox.Show("2");
+                    }
+                    else if (GSWei_X > 252 && GSWei_X <= 278)
+                    {
+
+                        a = 104;
+                        b = 92;
+                        //  MessageBox.Show("4");
+                    }
+                    else if (GSWei_X > 278 && GSWei_X <= 304)
+                    {
+
+                        a = 100;
+                        b = 80;
+                        //   MessageBox.Show("2");
+                    }
+                    else if (GSWei_X > 304 && GSWei_X <= 330)
+                    {
+
+                        a = 83;
+                        b = 74;
+                        // MessageBox.Show("4");
+                    }
+                    else if (GSWei_X > 330 && GSWei_X <= 356)
+                    {
+
+                        a = 74;
+                        b = 65;
+                        //   MessageBox.Show("2");
+                    }
+                    else if (GSWei_X > 356 && GSWei_X <= 382)
+                    {
+
+                        a = 73;
+                        b = 51;
+                        //   MessageBox.Show("4");
+                    }
+                    else if (GSWei_X > 382 && GSWei_X <= 408)
+                    {
+
+                        a = 66;
+                        b = 40;
+                        //   MessageBox.Show("2");
+                    }
+                    else if (GSWei_X > 408 && GSWei_X <= 530)
+                    {
+
+                        a = 54;
+                        b = 27;
+
+                        // MessageBox.Show("4");
+                    }
 
             //int x_asix= Convert.ToInt32(GSWei_X);
             //int y_asix = Convert.ToInt32(GSWei_Y);
             //togetherFun1(x_asix, y_asix);
-        //    sw.Stop();//碼錶停止                                    
-         //   string result1 = sw.Elapsed.TotalMilliseconds.ToString();//印出所花費的總豪秒數                  
-         //   richTextBox1.Text += (countt++) + " : " + result1;
-          //  richTextBox1.Text += "\n";
+            /*sw.Stop();//碼錶停止                                    
+            string result1 = sw.Elapsed.TotalMilliseconds.ToString();//印出所花費的總豪秒數                  
+            richTextBox1.Text += (countt++) + " : " + result1;
+            richTextBox1.Text += "\n";
+            */
         }
   
         private void btn_startNetwork_Click(object sender, EventArgs e)
@@ -657,203 +750,7 @@ namespace Ptp2AxesControl_CS
         {
             
 
-            Image<Bgr, Byte> frame = cap.QueryFrame().ToImage<Bgr, Byte>(); // 去query該畫面
-            Image<Hsv, byte> framehsv = frame.Convert<Hsv, byte>();   //fram to hsv                       //MessageBox.Show(frame.Size.ToString());
-            Image<Gray, byte> grayImage = framehsv.Convert<Gray, byte>();//framhsv to gray
-            //MessageBox.Show(image.Data[131, 104, 0].ToString() + "," + image.Data[131, 104, 1].ToString() + "," + image.Data[131, 104, 2].ToString());
-            Gray thresholdValue = new Gray(150);
-            //取得二值化影像
-            //var thresholdImage = grayImage.ThresholdBinary(thresholdValue, new Gray(255));
-            CvInvoke.InRange(framehsv, new ScalarArray(new MCvScalar(0, 120, 120)),
-                       new ScalarArray(new MCvScalar(8, 255, 255)), grayImage);
-            VectorOfVectorOfPoint contours = new VectorOfVectorOfPoint();
-            CvInvoke.FindContours(grayImage, contours, null, RetrType.External, ChainApproxMethod.ChainApproxSimple);
 
-            int count = contours.Size;
-            for (int i = 0; i < count; i++)
-            {
-                using (VectorOfPoint contour = contours[i])
-                {
-                    // 使用 BoundingRectangle 取得框選矩形
-                    Rectangle BoundingBox = CvInvoke.BoundingRectangle(contour);
-                    CvInvoke.Rectangle(grayImage, BoundingBox, new MCvScalar(255), 3);
-                    //CvInvoke.Rectangle(frame, BoundingBox, new MCvScalar(255), 3);
-                    posXX = (BoundingBox.Left + BoundingBox.Right) / 2;
-                    posYY = (BoundingBox.Bottom + BoundingBox.Top) / 2;
-                    if ((BoundingBox.Right - BoundingBox.Left) * (BoundingBox.Bottom - BoundingBox.Top) >= 300)
-                    {
-                        posX = posXX;
-                        posY = posYY;
-                        //GSWei_Y = (640 - posX) / cam_pix_to_mm;
-                        // GSWei_X = (480 - 80 - posY) / (cam_pix_to_mm * (1 - cam_rotation));
-                        // CvInvoke.Circle(grayImage, new Point((int)posX,(int)posY), 3, new MCvScalar(255),3);
-                        CvInvoke.Circle(frame, new Point((int)posX, (int)posY), 3, new MCvScalar(255), 3);
-                        //CvInvoke.Circle(frame, new Point(cam_center_x, cam_center_y), 3, new MCvScalar(255), 3);//畫正中心
-                        label6.Text = string.Format("X: {0}, Y: {1}", (int)posX, (int)posY);
-                        //label7.Text = string.Format("GSWei_X: {0}, GSWei_Y: {1}", (int)GSWei_X, (int)GSWei_Y);                     
-                        if ((640 - posX) * cam_pix_to_mm <= 150)
-                        {
-                            trigger = 1;
-                        }
-                        else
-                        {
-                            trigger = 0;
-                        }
-                    }
-                }
-            }
-
-            //cameraprocess(posX, posY);
-            // Convert from Camera reference system to Robot reference system
-            // We suppose very small angle rotatios (less than 5 degrees) so we use the 
-            // aproximation that sin cam_rotation = cam_rotation (in radians)
-            // Camera X axis correspond to robot Y axis
-
-            coordY = ((640 - posX) * cam_pix_to_mm) - 0;   // First we convert image coordinates to center of image
-            coordX = ((480 - posY) * cam_pix_to_mm) - 0;
-
-            //coordY = robot_center_y - coordY * cam_pix_to_mm;
-            //coordX = robot_center_x - coordX * cam_pix_to_mm * (1 - cam_rotation);
-
-            // Calculate speed and angle
-            vectorX = (coordX - puckCoordX);
-            vectorY = (coordY - puckCoordY);
-
-            puckSpeedX = vectorX * 100 / time;  // speed in dm/ms (
-            puckSpeedY = vectorY * 100 / time;
-            //puckSpeed = sqrt(vectorX*vectorX + vectorY*vectorY)*1000.0/time;
-            //puckDirection = atan2(vectorY,vectorX);
-            puckOldCoordX = puckCoordX;
-            puckOldCoordY = puckCoordY;
-            puckCoordX = coordX;
-            puckCoordY = coordY;
-
-            // Noise detection, big vector...
-            if ((vectorY < -100) || (vectorY > 100) || (vectorX > 100) || (vectorX < -100))
-            {
-                Console.WriteLine("NOISE");
-                //return ;
-            }
-            // Its time to predict...
-            // Based on actual position, speed and angle we need to know the future...
-            // Posible impact?
-            if (puckSpeedY < -10)
-            {
-                // Puck is comming...
-                // We need to predict the puck position when it reaches our goal Y=0
-                // slope formula: m = (y2-y1)/(x2-x1)
-                if (vectorX == 0)  // To avoid division by 0
-                    slope = 9999999;
-                else
-                    slope = (float)vectorY / (float)vectorX;
-                // x = (y2-y1)/m + x1
-                predict_y = defense_position;
-                predict_x = (predict_y - coordY) / slope + coordX;//改了-284.71
-
-                // puck has a bounce with side wall?
-                if ((predict_x < 115) || (predict_x > 461))//將會碰撞
-                {
-                    // We start a new prediction
-                    // Wich side?
-                    if (predict_x < 115)//碰撞上方
-                    {
-                        //Left side. We calculare the impact point
-                        bounce_x = 115.0f;
-                    }
-                    else//碰撞下方
-                    {
-                        //Right side. We calculare the impact point
-                        bounce_x = 461.0f;
-                    }
-                    //bounce_y = (bounce_x - coordX)*slope + coordY;//原式
-                    bounce_y = ((bounce_x - predict_x) * slope + 100);//改-284.71
-                    bounce_pixX = 640 - (bounce_y / cam_pix_to_mm);
-                    bounce_pixY = 480 - (bounce_x / (cam_pix_to_mm * (1 - cam_rotation)));
-                    predict_time = (bounce_y - puckCoordY) * 100 / puckSpeedY;  // time until bouce
-                                                                                // bounce prediction
-                                                                                // Slope change
-                    slope = -slope;
-                    predict_y = defense_position;
-                    predict_x = (predict_y - bounce_y) / slope + bounce_x;
-
-                    if ((predict_x < 115) || (predict_x > 461))
-                    {
-                        // New bounce?? 
-                        // We do nothing then...
-                        //sprintf(tempStr2, "2B %d %d", bounce_x, bounce_y);
-                        predict_x_old = -1;
-                    }
-                    else
-                    {
-                        // draw line
-                        //~~~~~~~~cvLine(frameGrabbed, cvPoint(posX / 2, posY / 2), cvPoint(bounce_pixX / 2, bounce_pixY / 2), cvScalar(255, 0, 0), 2);
-                        CvInvoke.Line(frame, new Point((int)posX, (int)posY), new Point((int)bounce_pixX, (int)bounce_pixY), new MCvScalar(255, 0, 0), 2);
-
-                        // result average
-                        if (predict_x_old != -1)
-                            predict_x = (int)(predict_x_old + predict_x) >> 1;
-                        predict_x_old = predict_x;
-                        predict_time = predict_time + (predict_y - puckCoordY) * 100 / puckSpeedY;  // in ms
-                                                                                                    //sprintf(tempStr2, "%d;%d %d %d t%d", coordX, coordY, predict_x, puckSpeedY, predict_time);
-                                                                                                    //predict_pixX = cam_center_x - (predict_y - robot_center_y) / cam_pix_to_mm;
-                                                                                                    //predict_pixY = cam_center_y - (predict_x - robot_center_x) / (cam_pix_to_mm * (1 - cam_rotation));
-                        predict_pixX = 640 - (predict_y / cam_pix_to_mm);
-                        predict_pixY = 480 - (predict_x / (cam_pix_to_mm * (1 - cam_rotation)));
-                        // draw line
-                        //~~~~~~~~~~cvLine(frameGrabbed, cvPoint(bounce_pixX / 2, bounce_pixY / 2), cvPoint(predict_pixX / 2, predict_pixY / 2), cvScalar(0, 255, 0), 2);
-                        CvInvoke.Line(frame, new Point((int)bounce_pixX, (int)bounce_pixY), new Point((int)predict_pixX, (int)predict_pixY), new MCvScalar(0, 255, 0), 2);
-
-                    }
-                }
-                else  // No bounce, direct impact
-                {
-                    // result average
-                    if (predict_x_old != -1)
-                        predict_x = (int)(predict_x_old + predict_x) >> 1;
-                    predict_x_old = predict_x;
-
-                    predict_time = (predict_y - puckCoordY) * 100 / puckSpeedY;  // in ms
-                                                                                 //~~~~~~~~~sprintf(tempStr2, "%d;%d %d %d t%d", coordX, coordY, predict_x, puckSpeedY, predict_time);
-                                                                                 // Convert impact prediction position to pixels (to show on image)
-                                                                                 //predict_pixX = cam_center_x - (predict_y - robot_center_y) / cam_pix_to_mm;
-                    predict_pixX = 640 - (predict_y / cam_pix_to_mm);
-                    //predict_pixY = cam_center_y - (predict_x - robot_center_x) / (cam_pix_to_mm * (1 - cam_rotation));
-                    predict_pixY = 480 - (predict_x / (cam_pix_to_mm * (1 - cam_rotation)));
-                    // draw line
-                    //~~~~~~~cvLine(frameGrabbed, cvPoint(posX / 2, posY / 2), cvPoint(predict_pixX / 2, predict_pixY / 2), cvScalar(0, 255, 0), 2);
-                    CvInvoke.Line(frame, new Point((int)posX, (int)posY), new Point((int)predict_pixX, (int)predict_pixY), new MCvScalar(0, 255, 0), 2);
-                }
-            }
-            else // Puck is moving slowly or to the other side
-            {
-                //~~~~~~~~~sprintf(tempStr2, "NO %d,%d %d", coordX, coordY, puckSpeedY);
-                predict_x_old = -1;
-            }
-
-            GSWei_Y = predict_y;
-            GSWei_X = predict_x;
-
-           
-
-            label7.Text = string.Format("GSWei_X: {0}, GSWei_Y: {1}", (int)GSWei_X, (int)GSWei_Y);
-
-            CvInvoke.Line(frame, new Point((int)0, (int)(95 / cam_pix_to_mm)), new Point((int)640, (int)(95 / cam_pix_to_mm)), new MCvScalar(0, 0, 0), 2);
-            CvInvoke.Line(frame, new Point((int)0, (int)(481 / cam_pix_to_mm)), new Point((int)640, (int)(481 / cam_pix_to_mm)), new MCvScalar(0, 0, 0), 2);
-
-            CvInvoke.Line(frame, new Point((int)0, (int)(115 / cam_pix_to_mm)), new Point((int)640, (int)(115 / cam_pix_to_mm)), new MCvScalar(255, 255, 255), 2);
-            CvInvoke.Line(frame, new Point((int)0, (int)(461 / cam_pix_to_mm)), new Point((int)640, (int)(461 / cam_pix_to_mm)), new MCvScalar(255, 255, 255), 2);
-            CvInvoke.PutText(frame, "posX", new Point(10, 20), 0, 0.7, new MCvScalar(255, 255, 0), 2);
-
-            CvInvoke.Line(grayImage, new Point((int)0, (int)(115 / cam_pix_to_mm)), new Point((int)640, (int)(115 / cam_pix_to_mm)), new MCvScalar(255, 255, 255), 2);
-            pictureBox2.Image = grayImage.ToBitmap();
-
-            frame.Dispose();
-            framehsv.Dispose();
-            grayImage.Dispose();
-
-            //int x_asix= Convert.ToInt32(GSWei_X);
-            //int y_asix = Convert.ToInt32(GSWei_Y);
-            //togetherFun1(x_asix, y_asix);
 
             if (btn_ServoOn_0.Text == "Servo on" || btn_ServoOn_1.Text == "Servo on")//控制部分
             {
@@ -865,125 +762,21 @@ namespace Ptp2AxesControl_CS
             {
                 olda = a;
                 oldb = b;
-                
 
-                if (GSWei_X > 90 && GSWei_X <= 120)
-                    {
-
-
-                    b = 122; 
-                    a = 154;
-
-                      //  MessageBox.Show("1");
-
-                    }
-                    else if (GSWei_X > 120 && GSWei_X <= 146)
-                    {
-
-                    b = 122;
-                    a = 154;
-                        //   MessageBox.Show("2");
-                    }
-                    else if (GSWei_X > 146 && GSWei_X <= 172)
-                    {
-
-                    b = 122;
-                    a = 154;
-                     //   MessageBox.Show("2");            
-                    }
-                    else if (GSWei_X > 172 && GSWei_X <= 198)
-                    {
-
-                    b = 111;
-                    a = 136;
-                        //   MessageBox.Show("2");
-                    }
-                    else if (GSWei_X > 198 && GSWei_X <= 226)
-                    {
-
-                    b = 105;
-                    a = 126;
-                      //  MessageBox.Show("3");
-                    }
-                    else if (GSWei_X > 226 && GSWei_X <= 252)
-                    {
-
-                    b = 95;
-                    a = 112;
-                        //   MessageBox.Show("2");
-                    }
-                    else if (GSWei_X > 252 && GSWei_X <= 278)
-                    {
-
-                    b = 87;
-                    a = 107;
-                      //  MessageBox.Show("4");
-                    }
-                    else if (GSWei_X > 278 && GSWei_X <= 304)
-                    {
-
-                    b = 82;
-                    a = 97;
-                        //   MessageBox.Show("2");
-                    }
-                    else if (GSWei_X > 304 && GSWei_X <= 330)
-                    {
-
-                    b = 70;
-                    a = 87;
-                       // MessageBox.Show("4");
-                    }
-                    else if (GSWei_X > 330 && GSWei_X <= 356)
-                    {
-
-                    b = 63;
-                    a = 80;
-                        //   MessageBox.Show("2");
-                    }
-                    else if (GSWei_X > 356 && GSWei_X <= 382)
-                    {
-
-                    b = 50;
-                        a = 75;
-                     //   MessageBox.Show("4");
-                    }
-                    else if (GSWei_X > 382 && GSWei_X <= 408)
-                    {
-
-                    b = 50;
-                    a = 60;
-                        //   MessageBox.Show("2");
-                    }
-                    else if (GSWei_X > 408 && GSWei_X <= 434)
-                    {
-
-                     b = 30;
-                    a = 60;
-                        
-                       // MessageBox.Show("4");
-                    }
-                    else if (GSWei_X > 434 && GSWei_X <= 460)
-                    {
-
-                    b = 30;
-                    a = 60;
-                       
-                        //   MessageBox.Show("2");
-                    }
-                    else if (GSWei_X > 460 && GSWei_X <= 530)
-                    {
-
-                    b = 30;
-                    a = 60;
-                        
-                    //   MessageBox.Show("2");
+               
                     
+                
+            /*    else
+                {
+                    a = olda - 10;
+                    b = oldb + 10;
                 }
+                */
                 if (olda != a && oldb != b)
                 {
                     RunLoop(a, b);
                 }
-                Thread.Sleep(100);                    
+                Thread.Sleep(50);                    
                 
             }
             
@@ -991,16 +784,9 @@ namespace Ptp2AxesControl_CS
 
         private void RunLoop(int a,int b)
         {
-            //計時檢測
-            System.Diagnostics.Stopwatch sw = new System.Diagnostics.Stopwatch();//引用stopwatch物件
-            sw.Reset();//碼表歸零
-            sw.Start();//碼表開始計時
+            
             int ret = 0;
-
             
-            
-            
-
             
             mTargetPos[0] = a;
             mVelocity[0] = Convert.ToUInt32(tb_Vel_0.Text);
@@ -1068,10 +854,7 @@ namespace Ptp2AxesControl_CS
                 if (ret != 0) { MessageBox.Show("NEC_CoE402Halt failed" + ret.ToString()); return; }
                 button3.Text = "Move";
             }
-            sw.Stop();//碼錶停止                                    
-            string result1 = sw.Elapsed.TotalMilliseconds.ToString();//印出所花費的總豪秒數                  
-            richTextBox1.Text += (countt++) + " : " + result1;
-            richTextBox1.Text += "\n";
+            
         }
 
         private void button1_Click(object sender, EventArgs e)
@@ -1133,3 +916,4 @@ namespace Ptp2AxesControl_CS
         }
     }   
 }
+
